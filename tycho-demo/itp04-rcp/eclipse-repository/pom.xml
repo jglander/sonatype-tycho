@@ -35,6 +35,8 @@
 							<goal>materialize-products</goal>
 						</goals>
 					</execution>
+					<!-- If using root links feature (see e.g. in example-feature/build.properties,
+						 then comment out the following archive-product execution) -->
 					<execution>
 						<id>archive-products</id>
 						<goals>
