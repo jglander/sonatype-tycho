@@ -6,9 +6,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,9 +20,9 @@ import org.eclipse.equinox.p2.metadata.IInstallableUnit;
 import org.eclipse.equinox.p2.metadata.IProvidedCapability;
 import org.eclipse.equinox.p2.metadata.IRequirement;
 import org.eclipse.equinox.p2.metadata.MetadataFactory;
+import org.eclipse.equinox.p2.metadata.MetadataFactory.InstallableUnitDescription;
 import org.eclipse.equinox.p2.metadata.Version;
 import org.eclipse.equinox.p2.metadata.VersionRange;
-import org.eclipse.equinox.p2.metadata.MetadataFactory.InstallableUnitDescription;
 import org.eclipse.equinox.p2.publisher.IPublisherAction;
 import org.eclipse.equinox.p2.publisher.IPublisherAdvice;
 import org.eclipse.equinox.p2.publisher.Publisher;
@@ -30,6 +30,7 @@ import org.eclipse.equinox.p2.publisher.PublisherInfo;
 import org.eclipse.equinox.p2.publisher.PublisherResult;
 import org.eclipse.equinox.p2.publisher.actions.ICapabilityAdvice;
 import org.eclipse.equinox.p2.repository.artifact.IArtifactDescriptor;
+import org.eclipse.equinox.p2.repository.artifact.IArtifactRepository;
 import org.sonatype.tycho.p2.IArtifactFacade;
 import org.sonatype.tycho.p2.impl.publisher.repo.TransientArtifactRepository;
 import org.sonatype.tycho.p2.util.StatusTool;
@@ -40,17 +41,17 @@ public abstract class AbstractMetadataGenerator
     private IProgressMonitor monitor = new NullProgressMonitor();
 
     protected void generateMetadata( IArtifactFacade artifact, List<Map<String, String>> environments,
-                                     Set<IInstallableUnit> units, Set<IArtifactDescriptor> artifacts )
+                                     Set<IInstallableUnit> units, Set<IArtifactDescriptor> artifacts,
+                                     PublisherInfo publisherInfo )
     {
-        TransientArtifactRepository artifactsRepository = new TransientArtifactRepository();
-        PublisherInfo publisherInfo = new PublisherInfo();
-        publisherInfo.setArtifactRepository( artifactsRepository );
+
         for ( IPublisherAdvice advice : getPublisherAdvice( artifact ) )
         {
             publisherInfo.addAdvice( advice );
         }
         List<IPublisherAction> actions = getPublisherActions( artifact, environments );
-        publish( units, artifacts, artifactsRepository, publisherInfo, actions );
+
+        publish( units, artifacts, publisherInfo, actions );
     }
 
     protected abstract List<IPublisherAction> getPublisherActions( IArtifactFacade artifact,
@@ -113,7 +114,7 @@ public abstract class AbstractMetadataGenerator
         return result.toArray( new IRequirement[result.size()] );
     }
 
-    private static Properties loadProperties( File project )
+    static Properties loadProperties( File project )
     {
         File file = new File( project, "build.properties" );
 
@@ -160,8 +161,7 @@ public abstract class AbstractMetadataGenerator
                                                            VersionRange.emptyRange, null, false, false ) );
     }
 
-    private void publish( Set<IInstallableUnit> units, Set<IArtifactDescriptor> artifacts,
-                          TransientArtifactRepository artifactsRepository, PublisherInfo publisherInfo,
+    private void publish( Set<IInstallableUnit> units, Set<IArtifactDescriptor> artifacts, PublisherInfo publisherInfo,
                           List<IPublisherAction> actions )
     {
         PublisherResult result = new PublisherResult();
@@ -182,7 +182,11 @@ public abstract class AbstractMetadataGenerator
 
         if ( artifacts != null )
         {
-            artifacts.addAll( artifactsRepository.getArtifactDescriptors() );
+            IArtifactRepository artifactRepository = publisherInfo.getArtifactRepository();
+            if ( artifactRepository instanceof TransientArtifactRepository )
+            {
+                artifacts.addAll( ( (TransientArtifactRepository) artifactRepository ).getArtifactDescriptors() );
+            }
         }
     }
 
