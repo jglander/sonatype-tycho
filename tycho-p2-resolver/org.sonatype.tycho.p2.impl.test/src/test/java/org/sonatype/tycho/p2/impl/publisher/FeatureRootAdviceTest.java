@@ -459,6 +459,146 @@ public class FeatureRootAdviceTest
         createAdvice( buildProperties ).getDescriptor( DEFAULT_CONFIG_SPEC );
     }
 
+    //
+    // symbolic links tests
+    //
+    @Test
+    public void testNoLinks()
+    {
+        Properties buildProperties = createBuildPropertiesWithDefaultRootFiles();
+
+        IFeatureRootAdvice advice =
+            new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID );
+
+        String globalLinks = advice.getDescriptor( DEFAULT_CONFIG_SPEC ).getLinks();
+        assertEquals( "", globalLinks );
+    }
+
+    @Test
+    public void testGlobalLinks()
+    {
+        Properties buildProperties = createBuildPropertiesWithDefaultRootFiles();
+        buildProperties.put( "root.link",
+                             "/path/to/fileOrFolder1,symbolicLinkName1,/path/to/fileOrFolder2,symbolicLinkName2" );
+
+        IFeatureRootAdvice advice =
+            new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID );
+
+        String actualLink = advice.getDescriptor( DEFAULT_CONFIG_SPEC ).getLinks();
+        assertEquals( "/path/to/fileOrFolder1,symbolicLinkName1,/path/to/fileOrFolder2,symbolicLinkName2", actualLink );
+    }
+
+    @Test
+    public void testSpecificLinks()
+    {
+        Properties buildProperties = createBuildPropertiesWithDefaultRootFiles();
+
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY, "file:file2.txt" );
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY + ".link",
+                             "/path/to/fileOrFolder2,symbolicLinkName2" );
+
+        IFeatureRootAdvice advice =
+            new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID );
+
+        String globalLink = advice.getDescriptor( DEFAULT_CONFIG_SPEC ).getLinks();
+        assertEquals( "", globalLink );
+
+        String specificLink = advice.getDescriptor( LINUX_SPEC_FOR_ADVICE ).getLinks();
+        assertEquals( "/path/to/fileOrFolder2,symbolicLinkName2", specificLink );
+    }
+
+    @Test
+    public void testGlobalAndSpecificLinks()
+    {
+        Properties buildProperties = createBuildPropertiesWithDefaultRootFiles();
+
+        // global
+        buildProperties.put( "root.link", "/path/to/fileOrFolder1,symbolicLinkName1" );
+
+        // specific
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY, "file:file2.txt" );
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY + ".link",
+                             "/path/to/fileOrFolder2,symbolicLinkName2" );
+
+        IFeatureRootAdvice advice =
+            new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID );
+
+        String globalLink = advice.getDescriptor( DEFAULT_CONFIG_SPEC ).getLinks();
+        assertEquals( "/path/to/fileOrFolder1,symbolicLinkName1", globalLink );
+
+        String specificLink = advice.getDescriptor( LINUX_SPEC_FOR_ADVICE ).getLinks();
+        assertEquals( "/path/to/fileOrFolder2,symbolicLinkName2", specificLink );
+    }
+
+    @Test
+    public void testLinksWithExistingPermissions()
+    {
+        Properties buildProperties = createBuildPropertiesWithDefaultRootFiles();
+
+        // permissions
+        buildProperties.put( "root.permissions.755", "file1.txt" );
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY, "file:file2.txt" );
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY + ".permissions.755", "file2.txt" );
+
+        // links
+        buildProperties.put( "root.link", "/path/to/fileOrFolder1,symbolicLinkName1" );
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY, "file:file2.txt" );
+        buildProperties.put( "root." + LINUX_SPEC_FOR_PROPERTIES_KEY + ".link",
+                             "/path/to/fileOrFolder2,symbolicLinkName2" );
+
+        IFeatureRootAdvice advice =
+            new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID );
+
+        String globalLink = advice.getDescriptor( DEFAULT_CONFIG_SPEC ).getLinks();
+        assertEquals( "/path/to/fileOrFolder1,symbolicLinkName1", globalLink );
+
+        String specificLink = advice.getDescriptor( LINUX_SPEC_FOR_ADVICE ).getLinks();
+        assertEquals( "/path/to/fileOrFolder2,symbolicLinkName2", specificLink );
+    }
+
+    @Test( expected = IllegalArgumentException.class )
+    public void testWrongRootfilesLinksKey()
+        throws Exception
+    {
+        Properties buildProperties = createBuildPropertiesWithDefaultRootFiles();
+        buildProperties.put( "root." + WINDOWS_SPEC_FOR_PROPERTIES_KEY + ".link.addedToMuch",
+                             "/path/to/fileOrFolder1,symbolicLinkName1" );
+        new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID ).getDescriptor( DEFAULT_CONFIG_SPEC );
+    }
+
+    @Test( expected = IllegalArgumentException.class )
+    public void testGlobalLinkButNoFiles()
+        throws Exception
+    {
+        Properties buildProperties = createBuildPropertiesWithoutRootKeys();
+        buildProperties.put( "root.link", "/path/to/fileOrFolder1,symbolicLinkName1" );
+
+        FeatureRootAdvice advice =
+            new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID );
+
+        for ( String configuration : advice.getConfigurations() )
+        {
+            advice.getDescriptor( configuration );
+        }
+    }
+
+    @Test( expected = IllegalArgumentException.class )
+    public void testSpecificLinkButNoFiles()
+        throws Exception
+    {
+        Properties buildProperties = createBuildPropertiesWithoutRootKeys();
+        buildProperties.put( "root." + WINDOWS_SPEC_FOR_PROPERTIES_KEY + ".link",
+                             "/path/to/fileOrFolder1,symbolicLinkName1" );
+
+        FeatureRootAdvice advice =
+            new FeatureRootAdvice( buildProperties, RESOURCES_FEATURE_PROJ_REL_PATH, DEFAULT_ARTIFACT_ID );
+
+        for ( String configuration : advice.getConfigurations() )
+        {
+            advice.getDescriptor( configuration );
+        }
+    }
+
     private static Properties createBuildPropertiesWithDefaultRootFiles()
     {
         Properties buildProperties = createBuildPropertiesWithoutRootKeys();
@@ -497,24 +637,6 @@ public class FeatureRootAdviceTest
     {
         assertEquals( expectedChmod, descriptorPermission[0] );
         assertEquals( expectedFile, descriptorPermission[1] );
-    }
-
-    @Test( expected = UnsupportedOperationException.class )
-    public void testUnsupportedLinkBuildProperties()
-    {
-        Properties unsupportedBuildProperties1 = new Properties();
-        unsupportedBuildProperties1.put( "root.link", "file:rootfiles/file1.txt" );
-
-        FeatureRootAdvice.getRootFilesFromBuildProperties( unsupportedBuildProperties1, RESOURCES_FEATURE_PROJ_REL_PATH );
-    }
-
-    @Test( expected = UnsupportedOperationException.class )
-    public void testUnsupportedLinkBuildProperties2()
-    {
-        Properties unsupportedBuildProperties2 = new Properties();
-        unsupportedBuildProperties2.put( "root.win32.win32.x86.link", "file:rootfiles/file1.txt" );
-
-        FeatureRootAdvice.getRootFilesFromBuildProperties( unsupportedBuildProperties2, RESOURCES_FEATURE_PROJ_REL_PATH );
     }
 
     private ArtifactMock createDefaultArtifactMock()

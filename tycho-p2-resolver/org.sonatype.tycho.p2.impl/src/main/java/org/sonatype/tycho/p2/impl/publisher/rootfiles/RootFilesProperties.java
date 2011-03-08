@@ -28,6 +28,8 @@ public class RootFilesProperties
 
     private List<Permission> permissions = new ArrayList<Permission>();
 
+    private String links = null;
+
     public Collection<Permission> getPermissions()
     {
         return permissions;
@@ -39,5 +41,15 @@ public class RootFilesProperties
         {
             permissions.add( new Permission( path, chmodPermissionPattern ) );
         }
+    }
+
+    public String getLinks()
+    {
+        return links;
+    }
+
+    public void setLinks( String links )
+    {
+        this.links = links;
     }
 }

@@ -75,6 +75,9 @@ public class Tycho465RootFilesTest
         Tycho465RootFilesTest.assertRootIuMetaData( contentXml );
         Tycho465RootFilesTest.assertInstalledWinConfigRootFile( targetDir );
         Tycho465RootFilesTest.assertInstalledLinuxConfigRootFile( targetDir );
+
+        Tycho465RootFilesTest.assertRootIuPermissionsMetaData( contentXml );
+        Tycho465RootFilesTest.assertRootIuLinksMetaData( contentXml );
     }
 
     static String getFileNotExistsInDirMsg( String fileRootRelPath, File dir )
@@ -213,22 +216,64 @@ public class Tycho465RootFilesTest
         String featureId = "tycho465.feature";
         String featureIuId = featureId + ".feature.group";
         Set<Element> featureIus = Util.findIU( contentXml, featureIuId );
-    
+
         assertEquals( "Feature iu with id = '" + featureIuId + "' does not occur exactly once in content.xml", 1,
                       featureIus.size() );
-    
+
         Element featureIu = featureIus.iterator().next();
         String rootWinConfigFeatureIuId = featureId + "_root.win32.win32.x86";
-    
+
         assertTrue( "Verifying content.xml failed because feature iu with id = '" + featureIuId
                         + "' does not contain required root iu with id = '" + rootWinConfigFeatureIuId + "'",
                     Util.iuHasAllRequirements( featureIu, rootWinConfigFeatureIuId ) );
-    
+
         String rootLinuxConfigFeatureIuId = featureId + "_root.gtk.linux.x86_64";
-    
+
         assertTrue( "Verifying content.xml failed because feature iu with id = '" + featureIuId
                         + "' does not contain required root iu with id = '" + rootLinuxConfigFeatureIuId + "'",
                     Util.iuHasAllRequirements( featureIu, rootLinuxConfigFeatureIuId ) );
+
+        String featureIuRootId = featureId + "_root";
+        Set<Element> featureRootIus = Util.findIU( contentXml, featureIuRootId );
+
+        assertEquals( "Feature root iu with id = '" + featureIuRootId + "' does not occur exactly once in content.xml",
+                      1, featureRootIus.size() );
+    }
+
+    static void assertRootIuPermissionsMetaData( Document contentXml )
+    {
+        // permission defined in build.properties: root.permissions.755 = file5.txt
+        Set<Element> featureRootIus = Util.findIU( contentXml, "tycho465.feature_root" );
+
+        String expectedTouchpointDataInstruction =
+            "chmod(targetDir:${installFolder}, targetFile:file5.txt, permissions:755);";
+
+        assertTrue( "Expected chmod touchpointData instruction '" + expectedTouchpointDataInstruction + "' not found.",
+                    Util.iuHasTouchpointDataInstruction( featureRootIus.iterator().next(),
+                                                         expectedTouchpointDataInstruction ) );
+    }
+
+    static void assertRootIuLinksMetaData( Document contentXml )
+    {
+        // global link defined in build.properties: root.link = path/to/nowhere,nil.lnk
+        Set<Element> globalFeatureRootIus = Util.findIU( contentXml, "tycho465.feature_root" );
+
+        String expectedGlobalTouchpointDataInstruction =
+            "ln(linkTarget:path/to/nowhere,targetDir:${installFolder},linkName:nil.lnk);";
+
+        assertTrue( "Expected link (ln) touchpointData instruction '" + expectedGlobalTouchpointDataInstruction
+            + "' not found.", Util.iuHasTouchpointDataInstruction( globalFeatureRootIus.iterator().next(),
+                                                                   expectedGlobalTouchpointDataInstruction ) );
+
+        // specific link defined in build.properties: root.linux.gtk.x86_64.link = path/to/nowhere/linux,xunil.lnk
+        Set<Element> specificRootfeatureIus = Util.findIU( contentXml, "tycho465.feature_root.gtk.linux.x86_64" );
+
+        String expectedSpecificTouchpointDataInstruction =
+            "ln(linkTarget:path/to/nowhere/linux,targetDir:${installFolder},linkName:xunil.lnk);";
+
+        assertTrue( "Expected link (ln) touchpointData instruction '" + expectedSpecificTouchpointDataInstruction
+            + "' not found.", Util.iuHasTouchpointDataInstruction( specificRootfeatureIus.iterator().next(),
+                                                                   expectedSpecificTouchpointDataInstruction ) );
     }
 
     private static Document openMetadataRepositoryDocument( File repositoryTargetDirectory )
